@@ -1,0 +1,64 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openvelox"
+version = "0.5.0"
+description = "Open-source Velox-like desktop app for Thermo Fisher / FEI electron microscopy data"
+readme = "README.md"
+license = { text = "GPL-3.0-only" }
+requires-python = ">=3.10"
+authors = [{ name = "Xinren Chen" }]
+keywords = [
+    "TEM",
+    "STEM",
+    "EDS",
+    "4D-STEM",
+    "DPC",
+    "Velox",
+    "EMD",
+    "electron microscopy",
+]
+classifiers = [
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "numpy>=1.24",
+    "scipy>=1.11",
+    "h5py>=3.10",
+    "PySide6>=6.6",
+    "pyqtgraph>=0.13",
+    "tifffile>=2023.1",
+    "Pillow>=10.0",
+    "scikit-image>=0.22",
+]
+
+[project.optional-dependencies]
+hyperspy = ["hyperspy>=2.0", "rosettasciio>=0.7", "exspy>=0.3"]
+ncem = ["ncempy>=1.11"]
+atoms = ["atomap>=0.4"]
+stem4d = ["py4DSTEM>=0.14", "pyxem>=0.19"]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+openvelox = "openvelox.app:main"
+
+[project.urls]
+Homepage = "https://github.com/xinren1230/OpenVelox"
+Issues = "https://github.com/xinren1230/OpenVelox/issues"
+Releases = "https://github.com/xinren1230/OpenVelox/releases"
+
+[tool.setuptools.packages.find]
+include = ["openvelox*"]
+
+[tool.setuptools.package-data]
+openvelox = ["resources/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
