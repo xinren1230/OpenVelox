@@ -396,6 +396,8 @@ def _stream_datasets(
         loaders.append(lazy)
         name = str(meta.get("display_name") or meta.get("detector") or f"EDS stream {uid[:6]}")
         axes = _axes_from_meta(shape, meta, DatasetKind.SPECTRUM_IMAGE)
+        meta = dict(meta)
+        meta.setdefault("detector_family", "superx")
         datasets.append(
             Dataset(
                 name=name,
@@ -768,7 +770,7 @@ def build_velox_metadata(
             "InstrumentId": instrument,
             "InstrumentModel": instrument,
             "Manufacturer": "FEI Company",
-            "ControlSoftwareVersion": "OpenVelox 0.5.0",
+            "ControlSoftwareVersion": "OpenVelox 0.6.0",
         },
         "Core": {
             "Guid": guid,

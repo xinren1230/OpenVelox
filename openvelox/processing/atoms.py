@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import numpy as np
-from scipy import ndimage
 
 
 def find_atom_columns(
@@ -19,6 +18,8 @@ def find_atom_columns(
     if arr.ndim != 2 or arr.size == 0:
         return np.zeros((0, 2), dtype=np.float64)
     arr = np.nan_to_num(arr, nan=0.0, posinf=0.0, neginf=0.0)
+    from scipy import ndimage
+
     smooth = ndimage.gaussian_filter(arr, sigma=float(sigma))
     size = max(3, int(min_distance) * 2 + 1)
     maxima = smooth == ndimage.maximum_filter(smooth, size=size)

@@ -2,6 +2,18 @@
 
 All notable changes to OpenVelox are documented here. Versions follow the public GitHub release numbers.
 
+## 0.6.0 — 2026-11-02
+
+Startup, expression calculator, Super-X / DF mixing, and lazy large-data I/O.
+
+- **Startup:** splash before the main window; SciPy / scikit-image / HyperSpy / py4DSTEM / reportlab / pptx load only when used. PyInstaller **onedir** and onefile share the same resource lookup (`sys._MEIPASS` or the package dir — no onefile-temp assumptions).
+- **Image calculator:** expressions `A+B`, `A-B`, `A*B`, `A/B` (safe divide), ratios, constants, `abs` / `log` / `sqrt`. Shape checks. Result is a new image with the source calibration.
+- **Super-X mixer:** weight per-detector EDS streams; the sum spectrum and maps update live. DF4-A–D (segmented STEM) mix the same way.
+- **Large 4D / SI:** HDF5 slicers plus optional `numpy.memmap`; virtual detectors and SI sums walk the cube in row chunks.
+- Tests: `tests/test_round6.py`. Import probe: `python scripts/measure_import.py`.
+
+---
+
 ## 0.5.0 — 2026-11-02
 
 Public release on [github.com/xinren1230/OpenVelox](https://github.com/xinren1230/OpenVelox). License is **GPL-3.0**. Author: **Xinren Chen**. Windows installer: `OpenVelox-Setup-0.5.0.exe` (Inno Setup, `packaging/openvelox.iss`).

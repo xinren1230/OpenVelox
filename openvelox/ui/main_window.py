@@ -24,9 +24,6 @@ from openvelox import __version__
 from openvelox.crashlog import report_exception, widget_alive, wrap_slot
 from openvelox.io.metadata import format_coord, format_pixel_size
 from openvelox.io.readers import load_experiment
-from openvelox.io.synthetic import generate_synthetic_emd
-from openvelox.io.report import export_report
-from openvelox.io.writers import batch_export_images, export_image, export_overlay, export_quant_table, export_spectrum_csv
 from openvelox.models import Dataset, DatasetKind, ExperimentFile
 from openvelox.processing.atoms import find_atom_columns
 from openvelox.processing.display import auto_levels, load_lut, register_lut
@@ -61,7 +58,7 @@ from openvelox.processing.filters import (
     unsharp_mask,
     wiener_filter,
 )
-from openvelox.processing.image_calc import image_calculate
+from openvelox.processing.image_calc import evaluate_expression, image_calculate
 from openvelox.processing.measure import (
     angle_deg,
     area_m2,
@@ -89,6 +86,7 @@ from openvelox.ui.browser import BrowserPanel
 from openvelox.ui.dialogs import ImageCalculatorDialog
 from openvelox.ui.icons import icon_for
 from openvelox.ui.image_canvas import ImageCanvas
+from openvelox.ui.detector_mixer import DetectorMixer
 from openvelox.ui.overlay_mixer import OverlayMixer
 from openvelox.ui.workspace import MultiPanelView, layout_keys, layout_shape, mirror_view
 from openvelox.ui.prefs import add_recent, clear_recent, load_prefs, recent_files, save_prefs
@@ -170,6 +168,8 @@ class MainWindow(QMainWindow):
         self._last_line_path: tuple[tuple[int, int], tuple[int, int]] | None = None
         self._last_roi_energy = None
         self._last_roi_spec = None
+        self._mixed_si = None
+        self._detector_mix_guard = False
 
         self.tabs = QTabWidget()
         self.tabs.setTabsClosable(True)
@@ -188,11 +188,20 @@ class MainWindow(QMainWindow):
 
         self.mixer = OverlayMixer(translator)
         self.mixer.mixChanged.connect(self._on_mix)
+        self.detector_mixer = DetectorMixer(translator)
+        self.detector_mixer.mixChanged.connect(self._on_detector_mix)
+        layer_box = QWidget()
+        from PySide6.QtWidgets import QVBoxLayout
+
+        layer_lay = QVBoxLayout(layer_box)
+        layer_lay.setContentsMargins(0, 0, 0, 0)
+        layer_lay.addWidget(self.detector_mixer)
+        layer_lay.addWidget(self.mixer, 1)
         self._docks = {
             "experiment": self._add_dock("experiment", self.tr_("experiment"), self.browser, Qt.DockWidgetArea.LeftDockWidgetArea),
             "properties": self._add_dock("properties", self.tr_("properties"), self.props, Qt.DockWidgetArea.RightDockWidgetArea),
             "spectrum": self._add_dock("spectrum", self.tr_("spectrum"), self.spectrum, Qt.DockWidgetArea.BottomDockWidgetArea),
-            "layers": self._add_dock("layers", self.tr_("layers"), self.mixer, Qt.DockWidgetArea.RightDockWidgetArea),
+            "layers": self._add_dock("layers", self.tr_("layers"), layer_box, Qt.DockWidgetArea.RightDockWidgetArea),
         }
         self.tabifyDockWidget(self._docks["properties"], self._docks["layers"])
         self._docks["properties"].raise_()
@@ -464,6 +473,7 @@ class MainWindow(QMainWindow):
             pass
         self._rebuild_recent()
         self.browser.add_experiment(experiment)
+        self._sync_detector_mixer()
         if experiment.datasets:
             preferred = next((d for d in experiment.datasets if d.name == "HAADF"), None)
             preferred = preferred or next((d for d in experiment.datasets if d.kind is DatasetKind.IMAGE), experiment.datasets[0])
@@ -472,6 +482,8 @@ class MainWindow(QMainWindow):
         return experiment
 
     def open_sample(self) -> ExperimentFile:
+        from openvelox.io.synthetic import generate_synthetic_emd
+
         path = generate_synthetic_emd(Path.cwd() / "samples")
         return self.load_path(path)
 
@@ -900,8 +912,20 @@ class MainWindow(QMainWindow):
         op, a, b = dlg.selection()
         if a is None:
             return
-        out = image_calculate(op, a.image2d(), None if op in {"invert", "normalize"} or b is None else b.image2d())
-        self._push_image(out, f"{op}({a.name})", a)
+        expr = dlg.expression() if hasattr(dlg, "expression") else op
+        a_img = a.image2d()
+        b_img = b.image2d() if b is not None else None
+        try:
+            if expr in {"add", "sub", "mul", "div", "invert", "normalize"}:
+                out = image_calculate(expr, a_img, None if expr in {"invert", "normalize"} else b_img)
+                label = f"{expr}({a.name})"
+            else:
+                out = evaluate_expression(expr, a_img, b_img)
+                label = expr.replace(" ", "")
+        except Exception as exc:
+            QMessageBox.critical(self, self.tr_("error"), str(exc))
+            return
+        self._push_image(out, label, a)
 
     def _mark_elements(self, symbols: list[str]) -> None:
         if self.spectrum.energy.size == 0:
@@ -1219,6 +1243,8 @@ class MainWindow(QMainWindow):
         path, _ = QFileDialog.getSaveFileName(self, self.tr_("export_image"), "image.png", "PNG (*.png);;TIFF (*.tif)")
         if not path:
             return
+        from openvelox.io.writers import export_image
+
         export_image(path, tab.canvas.image, **self._export_image_kwargs(tab))
 
     def export_report_dialog(self) -> None:
@@ -1230,6 +1256,8 @@ class MainWindow(QMainWindow):
         )
         if not path:
             return
+        from openvelox.io.report import export_report
+
         dest = export_report(path, self.report_model())
         self.status.setText(self.tr_("status_report", path=str(dest)))
 
@@ -1271,6 +1299,8 @@ class MainWindow(QMainWindow):
             return
         kwargs = self._export_image_kwargs(tab)
         kwargs.pop("scale_bar", None)
+        from openvelox.io.writers import export_overlay
+
         export_overlay(path, tab.canvas.image, **kwargs)
 
     def export_current_spectrum(self) -> None:
@@ -1278,6 +1308,8 @@ class MainWindow(QMainWindow):
             return
         path, _ = QFileDialog.getSaveFileName(self, self.tr_("export_spectrum"), "spectrum.csv", "CSV (*.csv)")
         if path:
+            from openvelox.io.writers import export_spectrum_csv
+
             export_spectrum_csv(path, self.spectrum.energy, self.spectrum.counts)
 
     def export_current_map(self) -> None:
@@ -1293,6 +1325,8 @@ class MainWindow(QMainWindow):
     def export_quant(self) -> None:
         path, _ = QFileDialog.getSaveFileName(self, self.tr_("export_quant"), "quantification.csv", "CSV (*.csv)")
         if path:
+            from openvelox.io.writers import export_quant_table
+
             export_quant_table(path, self.quant_rows)
 
     def export_roi_spectrum(self) -> None:
@@ -1302,6 +1336,8 @@ class MainWindow(QMainWindow):
             return
         path, _ = QFileDialog.getSaveFileName(self, self.tr_("export_roi"), "roi_spectrum.csv", "CSV (*.csv)")
         if path:
+            from openvelox.io.writers import export_spectrum_csv
+
             export_spectrum_csv(path, self._last_roi_energy, self._last_roi_spec)
 
     def export_line_scan(self) -> None:
@@ -1329,6 +1365,8 @@ class MainWindow(QMainWindow):
                     self._export_image_kwargs(widget),
                 )
             )
+        from openvelox.io.writers import batch_export_images
+
         written = batch_export_images(directory, items)
         self.status.setText(self.tr_("status_batch", n=len(written)))
 
@@ -1530,6 +1568,69 @@ class MainWindow(QMainWindow):
             if datasets:
                 self.apply_layout(layout, datasets=datasets)
         self.status.setText(self.tr_("session_loaded", n=len(data.get("files") or [])))
+
+    def _sync_detector_mixer(self) -> None:
+        from openvelox.processing.detector_mix import group_detector_datasets
+
+        self._detector_mix_guard = True
+        try:
+            self.detector_mixer.set_groups(group_detector_datasets(self.browser.all_datasets()))
+        finally:
+            self._detector_mix_guard = False
+
+    def _update_named_image(self, image: np.ndarray, name: str, proto: Dataset) -> ImageTab:
+        for i in range(self.tabs.count()):
+            w = self.tabs.widget(i)
+            if isinstance(w, ImageTab) and w.dataset.name == name:
+                w.dataset.data = np.asarray(image, dtype=np.float64)
+                w.canvas.set_image(w.dataset.data, pixel_m=proto.pixel_size_m(), reset_levels=False)
+                return w
+        return self._push_image(image, name, proto)
+
+    def _on_detector_mix(self, weights: dict) -> None:
+        if self._detector_mix_guard:
+            return
+        from openvelox.processing.detector_mix import mix_arrays, mix_spectrum_images
+        from openvelox.processing.eds import make_element_maps, sum_spectrum
+
+        superx = self.detector_mixer.datasets("superx")
+        sx_w = (weights or {}).get("superx") or {}
+        if len(superx) >= 2 and sx_w:
+            cubes = {ds.name: np.asarray(ds.data) for ds in superx}
+            try:
+                mixed = mix_spectrum_images(cubes, sx_w)
+            except ValueError:
+                mixed = None
+            if mixed is not None:
+                proto = superx[0]
+                energy = self._energy_for(proto)
+                self.spectrum.set_spectrum(energy, sum_spectrum(mixed), title="Super-X mix")
+                self._mixed_si = Dataset(
+                    name="Super-X mix",
+                    kind=DatasetKind.SPECTRUM_IMAGE,
+                    data=mixed,
+                    axes=list(proto.axes),
+                    metadata=dict(proto.metadata),
+                    source_path=proto.source_path,
+                    detector="Super-X",
+                )
+                self._current_si = self._mixed_si
+                if self._last_maps:
+                    self._last_maps = make_element_maps(mixed, energy, list(self._last_maps))
+                    self.mixer.set_maps(self._last_maps)
+                self.status.setText(self.tr_("status_mix", n=len(superx)))
+
+        df4 = self.detector_mixer.datasets("df4")
+        df_w = (weights or {}).get("df4") or {}
+        if len(df4) >= 2 and df_w:
+            images = {ds.name: ds.image2d() for ds in df4}
+            try:
+                mixed_img = mix_arrays(images, df_w)
+            except ValueError:
+                mixed_img = None
+            if mixed_img is not None:
+                self._update_named_image(mixed_img, "DF mix", df4[0])
+                self.status.setText(self.tr_("status_mix", n=len(df4)))
 
     def _on_mix(self, rgb: np.ndarray) -> None:
         tab = self.current_tab()

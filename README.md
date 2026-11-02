@@ -12,7 +12,7 @@ OpenVelox is a free, open-source alternative to Thermo Fisher Velox for viewing 
 
 ## Install (one click)
 
-1. Download **OpenVelox-Setup-0.5.0.exe** from [Releases](https://github.com/xinren1230/OpenVelox/releases/latest).
+1. Download **OpenVelox-Setup-0.6.0.exe** from [Releases](https://github.com/xinren1230/OpenVelox/releases/latest).
 2. Double-click it and follow the installer. No Python or admin rights needed.
 3. Start OpenVelox from the Start menu or desktop, then drag a data file into the window.
 

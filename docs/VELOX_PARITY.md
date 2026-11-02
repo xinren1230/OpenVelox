@@ -1,6 +1,6 @@
 # OpenVelox ↔ Thermo Fisher Velox parity
 
-OpenVelox 0.5.0 is an independent open-source TEM/STEM analysis app
+OpenVelox 0.6.0 is an independent open-source TEM/STEM analysis app
 ([github.com/xinren1230/OpenVelox](https://github.com/xinren1230/OpenVelox),
 GPL-3.0, author Xinren Chen). The goal is to match **Thermo Fisher Velox**
 workflows closely enough that a microscopist can open the same `.emd` session
@@ -55,7 +55,7 @@ Later rounds must not regress these.
 | Contrast / brightness / gamma | **done** | Sliders + histogram window/level region linked to the image |
 | LUT / colormap library | **done** | gray / gray_inv / thermal / fire / ice / glow / green / red / bone + scientific set; invert; load ImageJ `.lut` or CSV |
 | Unsharp / Sobel / high-pass / median / Wiener | **done** | Unchanged |
-| Image calculator | partial | Add/sub/mul/div/invert/normalize |
+| Image calculator | **done** | Expressions: A±B, A*B, A/B (safe), ratios, constants, abs/log/sqrt |
 
 Later rounds must not regress these.
 
@@ -91,7 +91,7 @@ Later rounds must not regress these.
 | Color overlay mixer | **done** | Per-element opacity sliders on the last map set |
 | Line scans | **done** | Drawn line-profile path, else mid-row; elemental profile + CSV |
 | ROI spectra | **done** | Rect / ellipse / polygon sum + background + peak labels |
-| Super-X / SpectrumStream | partial | Sparse decode + per-detector SI (unchanged) |
+| Super-X / SpectrumStream | **done** | Per-detector SI + live Super-X / DF4 weight mixer |
 
 ---
 
@@ -107,26 +107,37 @@ Later rounds must not regress these.
 | Report export | **done** | PDF / HTML / PPTX (`File → Export report`) with images, spectrum, quant |
 | Session save / restore | **done** | Files, k-factors, chrome, language, layout tiles, sync, diffraction |
 
-Still narrower than Velox (and left that way): Super-X family deconvolution of every detector, image calculator, microscope control.
+Still narrower than Velox: Super-X family deconvolution of every detector line, microscope control.
+
+---
+
+## Round 6 — calculator, Super-X mixer, startup (this release)
+
+| Velox feature | Status | OpenVelox |
+| --- | --- | --- |
+| Image calculator expressions | **done** | A/B, ratios, constants, abs/log/sqrt; calibration copied |
+| Super-X detector mix | **done** | Per-detector weights; live sum spectrum + maps |
+| Segmented STEM mix | **done** | DF4-A–D (HAADF/DF) weighted sum |
+| Fast open / large 4D & SI | **done** | Lazy HDF5 slicer + optional memmap; row-wise virtual detectors |
+| Startup | **done** | Splash, lazy SciPy / HyperSpy / py4DSTEM; PyInstaller onedir + onefile |
 
 ---
 
 ## Final status
 
-Rounds 1–5 are implemented. Remaining **partial** items are extras, not blockers:
+Rounds 1–6 are implemented. Remaining extras, not blockers:
 
 | Item | Why it stays partial |
 | --- | --- |
-| Image calculator | Four arithmetic ops + invert/normalize; no expression editor |
-| Super-X / SpectrumStream | Sparse decode + per-detector SI; no live multi-detector mixer |
+| Super-X family deconvolution | Peak ID is on the mixed sum, not per-detector line families |
 
 ---
 
 ## Always-on product requirements
 
 - Tests for every new feature; `QT_QPA_PLATFORM=offscreen python -m pytest` green
-- PyInstaller onefile-compatible on Windows (Python 3.12, PySide6): resolve
-  resources from `sys._MEIPASS` first
+- PyInstaller onedir/onefile-compatible on Windows (Python 3.12, PySide6):
+  resolve resources from `sys._MEIPASS` or the package dir — no onefile-temp assumptions
 - `requirements.txt` lists runtime + pytest; optional scientific extras stay in `pyproject.toml`
 
 ---
@@ -138,3 +149,4 @@ Rounds 1–5 are implemented. Remaining **partial** items are extras, not blocke
 3. **Round 3:** distance/angle/area, FFT d-spacing, histogram, scale-bar styling, overlay export
 4. **Round 4:** element ID, peak labels, background models, Cliff–Lorimer, maps, line scans
 5. **Round 5 (done):** virtual BF/ADF/ABF/DPC/iDPC, CoM, diffraction calibration, report export, session
+6. **Round 6 (done):** expression calculator, Super-X / DF mixer, lazy startup, mmap 4D/SI

@@ -24,19 +24,31 @@ def _annulus_mask(
     return (rr >= inner**2) & (rr <= outer**2)
 
 
+def _cube_shape(cube) -> tuple[int, int, int, int]:
+    shape = getattr(cube, "shape", None)
+    if shape is not None and len(shape) == 4:
+        return tuple(int(n) for n in shape)
+    arr = np.asarray(cube)
+    if arr.ndim != 4:
+        raise ValueError("4D-STEM cube must be (sy, sx, qy, qx)")
+    return tuple(int(n) for n in arr.shape)
+
+
 def virtual_bf(
     cube: np.ndarray,
     radius: float | None = None,
     center: tuple[float, float] | None = None,
 ) -> np.ndarray:
-    arr = np.asarray(cube, dtype=np.float64)
-    if arr.ndim != 4:
-        raise ValueError("4D-STEM cube must be (sy, sx, qy, qx)")
-    qy, qx = arr.shape[2], arr.shape[3]
+    from openvelox.io.lazy import iter_4d_rows
+
+    sy, sx, qy, qx = _cube_shape(cube)
     cy, cx = center if center is not None else (qy / 2.0, qx / 2.0)
     r = radius if radius is not None else min(qy, qx) / 6.0
     mask = _disk_mask((qy, qx), cy, cx, r)
-    return arr[:, :, mask].sum(axis=-1)
+    out = np.zeros((sy, sx), dtype=np.float64)
+    for y0, y1, slab in iter_4d_rows(cube):
+        out[y0:y1] = slab[:, :, mask].sum(axis=-1)
+    return out
 
 
 def virtual_adf(
@@ -45,29 +57,33 @@ def virtual_adf(
     outer: float | None = None,
     center: tuple[float, float] | None = None,
 ) -> np.ndarray:
-    arr = np.asarray(cube, dtype=np.float64)
-    if arr.ndim != 4:
-        raise ValueError("4D-STEM cube must be (sy, sx, qy, qx)")
-    qy, qx = arr.shape[2], arr.shape[3]
+    from openvelox.io.lazy import iter_4d_rows
+
+    sy, sx, qy, qx = _cube_shape(cube)
     cy, cx = center if center is not None else (qy / 2.0, qx / 2.0)
     r_in = inner if inner is not None else min(qy, qx) / 5.0
     r_out = outer if outer is not None else min(qy, qx) / 2.2
     mask = _annulus_mask((qy, qx), cy, cx, r_in, r_out)
-    return arr[:, :, mask].sum(axis=-1)
+    out = np.zeros((sy, sx), dtype=np.float64)
+    for y0, y1, slab in iter_4d_rows(cube):
+        out[y0:y1] = slab[:, :, mask].sum(axis=-1)
+    return out
 
 
 def center_of_mass_dpc(cube: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """CoM of each CBED pattern relative to the array center → (com_x, com_y)."""
-    arr = np.asarray(cube, dtype=np.float64)
-    if arr.ndim != 4:
-        raise ValueError("4D-STEM cube must be (sy, sx, qy, qx)")
-    qy, qx = arr.shape[2], arr.shape[3]
+    from openvelox.io.lazy import iter_4d_rows
+
+    sy, sx, qy, qx = _cube_shape(cube)
     yy = np.arange(qy, dtype=np.float64) - (qy - 1) / 2.0
     xx = np.arange(qx, dtype=np.float64) - (qx - 1) / 2.0
-    mass = arr.reshape(*arr.shape[:2], -1).sum(axis=-1)
-    mass = np.where(mass == 0, 1.0, mass)
-    com_y = (arr * yy[None, None, :, None]).sum(axis=(2, 3)) / mass
-    com_x = (arr * xx[None, None, None, :]).sum(axis=(2, 3)) / mass
+    com_x = np.zeros((sy, sx), dtype=np.float64)
+    com_y = np.zeros((sy, sx), dtype=np.float64)
+    for y0, y1, slab in iter_4d_rows(cube):
+        mass = slab.reshape(slab.shape[0], slab.shape[1], -1).sum(axis=-1)
+        mass = np.where(mass == 0, 1.0, mass)
+        com_y[y0:y1] = (slab * yy[None, None, :, None]).sum(axis=(2, 3)) / mass
+        com_x[y0:y1] = (slab * xx[None, None, None, :]).sum(axis=(2, 3)) / mass
     return com_x, com_y
 
 
@@ -85,17 +101,19 @@ def virtual_abf(
     center: tuple[float, float] | None = None,
 ) -> np.ndarray:
     """Annular bright-field: a ring inside the transmitted disk."""
-    arr = np.asarray(cube, dtype=np.float64)
-    if arr.ndim != 4:
-        raise ValueError("4D-STEM cube must be (sy, sx, qy, qx)")
-    qy, qx = arr.shape[2], arr.shape[3]
+    from openvelox.io.lazy import iter_4d_rows
+
+    sy, sx, qy, qx = _cube_shape(cube)
     cy, cx = center if center is not None else (qy / 2.0, qx / 2.0)
     r_out = outer if outer is not None else min(qy, qx) / 6.0
     r_in = inner if inner is not None else max(r_out * 0.55, 1.0)
     if r_in > r_out:
         r_in, r_out = r_out, r_in
     mask = _annulus_mask((qy, qx), cy, cx, r_in, r_out)
-    return arr[:, :, mask].sum(axis=-1)
+    out = np.zeros((sy, sx), dtype=np.float64)
+    for y0, y1, slab in iter_4d_rows(cube):
+        out[y0:y1] = slab[:, :, mask].sum(axis=-1)
+    return out
 
 
 def electron_wavelength_m(volts: float) -> float:

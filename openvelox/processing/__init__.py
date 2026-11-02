@@ -1,54 +1,6 @@
-from openvelox.processing.atoms import find_atom_columns
-from openvelox.processing.display import apply_display, auto_levels, lut_names
-from openvelox.processing.dpc import dpc_from_quadrants, idpc, ddpc
-from openvelox.processing.drift import align_and_sum, dcfi
-from openvelox.processing.eds import (
-    cliff_lorimer,
-    cliff_lorimer_abs,
-    color_overlay,
-    element_map,
-    export_line_scan_csv,
-    gaussian_net_map,
-    identify_peaks,
-    line_scan,
-    make_element_maps,
-    pca_denoise,
-    spectrum_background,
-    sum_spectrum,
-)
-from openvelox.processing.fft import fft2d, ifft2d, make_mask, power_spectrum, reconstruct
-from openvelox.processing.filters import (
-    average_background,
-    gaussian_filter,
-    highpass_filter,
-    median_filter,
-    sobel_filter,
-    subtract_background,
-    unsharp_mask,
-    wiener_filter,
-)
-from openvelox.processing.image_calc import image_calculate
-from openvelox.processing.measure import (
-    angle_deg,
-    area_m2,
-    distance,
-    fft_d_spacing,
-    format_area,
-    intensity_histogram,
-    line_profile,
-    polygon_mask,
-    profile_stats,
-    roi_stats,
-)
-from openvelox.processing.scalebar import ScaleBarStyle, choose_bar, parse_color
-from openvelox.processing.stem4d import (
-    apply_diffraction_cal,
-    center_of_mass_dpc,
-    electron_wavelength_m,
-    virtual_abf,
-    virtual_adf,
-    virtual_bf,
-)
+"""Processing package — submodules load on first use (keeps startup light)."""
+
+from __future__ import annotations
 
 __all__ = [
     "find_atom_columns",
@@ -86,6 +38,10 @@ __all__ = [
     "unsharp_mask",
     "wiener_filter",
     "image_calculate",
+    "evaluate_expression",
+    "mix_arrays",
+    "mix_spectrum_images",
+    "group_detector_datasets",
     "angle_deg",
     "area_m2",
     "distance",
@@ -106,3 +62,77 @@ __all__ = [
     "apply_diffraction_cal",
     "electron_wavelength_m",
 ]
+
+_MODULE = {
+    "find_atom_columns": "openvelox.processing.atoms",
+    "apply_display": "openvelox.processing.display",
+    "auto_levels": "openvelox.processing.display",
+    "lut_names": "openvelox.processing.display",
+    "dpc_from_quadrants": "openvelox.processing.dpc",
+    "idpc": "openvelox.processing.dpc",
+    "ddpc": "openvelox.processing.dpc",
+    "align_and_sum": "openvelox.processing.drift",
+    "dcfi": "openvelox.processing.drift",
+    "cliff_lorimer": "openvelox.processing.eds",
+    "cliff_lorimer_abs": "openvelox.processing.eds",
+    "color_overlay": "openvelox.processing.eds",
+    "element_map": "openvelox.processing.eds",
+    "export_line_scan_csv": "openvelox.processing.eds",
+    "gaussian_net_map": "openvelox.processing.eds",
+    "identify_peaks": "openvelox.processing.eds",
+    "line_scan": "openvelox.processing.eds",
+    "make_element_maps": "openvelox.processing.eds",
+    "pca_denoise": "openvelox.processing.eds",
+    "spectrum_background": "openvelox.processing.eds",
+    "sum_spectrum": "openvelox.processing.eds",
+    "fft2d": "openvelox.processing.fft",
+    "ifft2d": "openvelox.processing.fft",
+    "make_mask": "openvelox.processing.fft",
+    "power_spectrum": "openvelox.processing.fft",
+    "reconstruct": "openvelox.processing.fft",
+    "average_background": "openvelox.processing.filters",
+    "subtract_background": "openvelox.processing.filters",
+    "gaussian_filter": "openvelox.processing.filters",
+    "highpass_filter": "openvelox.processing.filters",
+    "median_filter": "openvelox.processing.filters",
+    "sobel_filter": "openvelox.processing.filters",
+    "unsharp_mask": "openvelox.processing.filters",
+    "wiener_filter": "openvelox.processing.filters",
+    "image_calculate": "openvelox.processing.image_calc",
+    "evaluate_expression": "openvelox.processing.image_calc",
+    "mix_arrays": "openvelox.processing.detector_mix",
+    "mix_spectrum_images": "openvelox.processing.detector_mix",
+    "group_detector_datasets": "openvelox.processing.detector_mix",
+    "angle_deg": "openvelox.processing.measure",
+    "area_m2": "openvelox.processing.measure",
+    "distance": "openvelox.processing.measure",
+    "fft_d_spacing": "openvelox.processing.measure",
+    "format_area": "openvelox.processing.measure",
+    "intensity_histogram": "openvelox.processing.measure",
+    "line_profile": "openvelox.processing.measure",
+    "polygon_mask": "openvelox.processing.measure",
+    "profile_stats": "openvelox.processing.measure",
+    "roi_stats": "openvelox.processing.measure",
+    "ScaleBarStyle": "openvelox.processing.scalebar",
+    "choose_bar": "openvelox.processing.scalebar",
+    "parse_color": "openvelox.processing.scalebar",
+    "center_of_mass_dpc": "openvelox.processing.stem4d",
+    "virtual_adf": "openvelox.processing.stem4d",
+    "virtual_abf": "openvelox.processing.stem4d",
+    "virtual_bf": "openvelox.processing.stem4d",
+    "apply_diffraction_cal": "openvelox.processing.stem4d",
+    "electron_wavelength_m": "openvelox.processing.stem4d",
+}
+
+
+def __getattr__(name: str):
+    mod = _MODULE.get(name)
+    if mod is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    import importlib
+
+    return getattr(importlib.import_module(mod), name)
+
+
+def __dir__() -> list[str]:
+    return sorted(set(__all__))

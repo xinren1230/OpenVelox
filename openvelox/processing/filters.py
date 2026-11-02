@@ -3,19 +3,26 @@
 from __future__ import annotations
 
 import numpy as np
-from scipy import ndimage, signal
+
+
+def _ndi():
+    from scipy import ndimage
+
+    return ndimage
 
 
 def gaussian_filter(image: np.ndarray, sigma: float = 1.0) -> np.ndarray:
-    return ndimage.gaussian_filter(np.asarray(image, dtype=np.float64), sigma=float(sigma))
+    return _ndi().gaussian_filter(np.asarray(image, dtype=np.float64), sigma=float(sigma))
 
 
 def median_filter(image: np.ndarray, size: int = 3) -> np.ndarray:
     size = max(1, int(size))
-    return ndimage.median_filter(np.asarray(image, dtype=np.float64), size=size)
+    return _ndi().median_filter(np.asarray(image, dtype=np.float64), size=size)
 
 
 def wiener_filter(image: np.ndarray, mysize: int = 5) -> np.ndarray:
+    from scipy import signal
+
     arr = np.asarray(image, dtype=np.float64)
     if arr.size == 0:
         return arr
@@ -31,7 +38,7 @@ def wiener_filter(image: np.ndarray, mysize: int = 5) -> np.ndarray:
 def average_background(image: np.ndarray, sigma: float = 25.0) -> np.ndarray:
     """Subtract a heavily smoothed copy (Velox-style average background)."""
     arr = np.asarray(image, dtype=np.float64)
-    bg = ndimage.gaussian_filter(arr, sigma=float(sigma))
+    bg = _ndi().gaussian_filter(arr, sigma=float(sigma))
     return arr - bg
 
 
@@ -47,7 +54,7 @@ def rolling_ball_background(image: np.ndarray, radius: float = 25.0) -> np.ndarr
     if arr.ndim != 2 or arr.size == 0:
         return np.zeros_like(arr)
     footprint = _disk(int(max(1, round(float(radius)))))
-    return ndimage.grey_opening(arr, footprint=footprint)
+    return _ndi().grey_opening(arr, footprint=footprint)
 
 
 def plane_background(image: np.ndarray) -> np.ndarray:
@@ -95,7 +102,7 @@ def subtract_background(
 
 def unsharp_mask(image: np.ndarray, sigma: float = 1.2, amount: float = 1.0) -> np.ndarray:
     arr = np.asarray(image, dtype=np.float64)
-    blur = ndimage.gaussian_filter(arr, sigma=float(sigma))
+    blur = _ndi().gaussian_filter(arr, sigma=float(sigma))
     return arr + float(amount) * (arr - blur)
 
 
@@ -103,8 +110,8 @@ def sobel_filter(image: np.ndarray) -> np.ndarray:
     arr = np.asarray(image, dtype=np.float64)
     if arr.ndim != 2 or arr.size == 0:
         return arr
-    gx = ndimage.sobel(arr, axis=1)
-    gy = ndimage.sobel(arr, axis=0)
+    gx = _ndi().sobel(arr, axis=1)
+    gy = _ndi().sobel(arr, axis=0)
     return np.hypot(gx, gy)
 
 

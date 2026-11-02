@@ -12,7 +12,7 @@ OpenVelox 是一款免费开源的电镜数据分析软件，界面和功能参�
 
 ## 一键安装
 
-1. 在 [Releases](https://github.com/xinren1230/OpenVelox/releases/latest) 下载 **OpenVelox-Setup-0.5.0.exe**。
+1. 在 [Releases](https://github.com/xinren1230/OpenVelox/releases/latest) 下载 **OpenVelox-Setup-0.6.0.exe**。
 2. 双击按提示安装，不需要 Python，也不需要管理员权限。
 3. 从开始菜单或桌面打开 OpenVelox，把数据文件拖进窗口即可。
 

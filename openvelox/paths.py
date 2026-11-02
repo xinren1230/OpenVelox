@@ -16,11 +16,41 @@ def meipass() -> Path | None:
     return Path(raw) if raw else None
 
 
+def frozen_roots() -> list[Path]:
+    """Candidate resource roots for PyInstaller onedir *and* onefile.
+
+    ``sys._MEIPASS`` is the bundle root (``_internal`` next to the exe in
+    onedir, or the extract dir in onefile). Also try the executable
+    directory. Nothing here assumes a one-file temp path layout.
+    """
+    roots: list[Path] = []
+    raw = getattr(sys, "_MEIPASS", None)
+    if raw:
+        roots.append(Path(raw))
+    if getattr(sys, "frozen", False) or raw:
+        try:
+            exe_dir = Path(sys.executable).resolve().parent
+            roots.append(exe_dir)
+            roots.append(exe_dir / "_internal")
+        except Exception:
+            pass
+    seen: set[str] = set()
+    unique: list[Path] = []
+    for root in roots:
+        key = str(root)
+        if key not in seen:
+            seen.add(key)
+            unique.append(root)
+    return unique
+
+
 def resource_root() -> Path:
     """Directory that contains bundled `samples/` and package data."""
-    frozen = meipass()
-    if frozen is not None:
-        return frozen
+    for root in frozen_roots():
+        if (root / "samples").exists() or (root / "openvelox" / "resources").exists() or (root / "resources").exists():
+            return root
+    if frozen_roots():
+        return frozen_roots()[0]
     return Path(__file__).resolve().parent.parent
 
 
@@ -29,17 +59,16 @@ def resource_path(*parts: str) -> Path:
 
 
 def window_icon_path() -> Path:
-    """``openvelox/resources/openvelox.ico`` from ``sys._MEIPASS`` or the package dir."""
-    rel = Path("openvelox") / "resources" / "openvelox.ico"
-    frozen = meipass()
-    if frozen is not None:
-        preferred = frozen / rel
-        if preferred.is_file():
-            return preferred
-        alt = frozen / "resources" / "openvelox.ico"
-        if alt.is_file():
-            return alt
-        return preferred
+    """``openvelox/resources/openvelox.ico`` from ``sys._MEIPASS``, the exe dir, or the package."""
+    rels = (
+        Path("openvelox") / "resources" / "openvelox.ico",
+        Path("resources") / "openvelox.ico",
+    )
+    for root in frozen_roots():
+        for rel in rels:
+            cand = root / rel
+            if cand.is_file():
+                return cand
     return Path(__file__).resolve().parent / "resources" / "openvelox.ico"
 
 

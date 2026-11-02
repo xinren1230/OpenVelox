@@ -42,7 +42,7 @@ def main(argv: list[str] | None = None) -> int:
     from openvelox.i18n import Translator
     from openvelox.paths import ensure_window_icon
     from openvelox.theme import STYLESHEET, apply_pyqtgraph
-    from openvelox.ui.main_window import MainWindow, schedule_screenshots
+    from openvelox.ui.splash import make_splash
 
     apply_pyqtgraph()
     app = QApplication.instance() or QApplication(sys.argv if sys.argv else ["OpenVelox"])
@@ -59,8 +59,15 @@ def main(argv: list[str] | None = None) -> int:
     app.setStyleSheet(STYLESHEET)
 
     translator = Translator(args.lang)
+    splash = make_splash(translator("splash_loading"))
+    splash.show()
+    app.processEvents()
+
+    from openvelox.ui.main_window import MainWindow, schedule_screenshots
+
     window = MainWindow(translator)
     window.show()
+    splash.finish(window)
 
     for path in args.files:
         try:

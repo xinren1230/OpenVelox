@@ -5,8 +5,24 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
-from scipy.ndimage import gaussian_filter, shift as ndi_shift
-from skimage.registration import phase_cross_correlation
+
+
+def _gaussian_filter(arr: np.ndarray, sigma: float) -> np.ndarray:
+    from scipy.ndimage import gaussian_filter
+
+    return gaussian_filter(arr, sigma=sigma)
+
+
+def _phase_cross_correlation(ref: np.ndarray, image: np.ndarray, upsample: int):
+    from skimage.registration import phase_cross_correlation
+
+    return phase_cross_correlation(ref, image, upsample_factor=upsample)
+
+
+def _ndi_shift(frame: np.ndarray, shift) -> np.ndarray:
+    from scipy.ndimage import shift as ndi_shift
+
+    return ndi_shift(frame, shift=shift, order=1, mode="nearest")
 
 
 @dataclass
@@ -22,7 +38,7 @@ class DCFIResult:
 def _prepare(frame: np.ndarray, highpass_sigma: float) -> np.ndarray:
     arr = np.nan_to_num(np.asarray(frame, dtype=np.float64), nan=0.0)
     if highpass_sigma and highpass_sigma > 0:
-        arr = arr - gaussian_filter(arr, sigma=float(highpass_sigma))
+        arr = arr - _gaussian_filter(arr, sigma=float(highpass_sigma))
     return arr
 
 
@@ -45,20 +61,20 @@ def estimate_shifts(
     if mode == "previous":
         acc = np.zeros(2, dtype=np.float64)
         for i in range(1, n):
-            delta, _err, _ph = phase_cross_correlation(prepared[i - 1], prepared[i], upsample_factor=upsample)
+            delta, _err, _ph = _phase_cross_correlation(prepared[i - 1], prepared[i], upsample)
             acc = acc + np.asarray(delta, dtype=np.float64)
             shifts[i] = acc
         return shifts
     ref = prepared[0]
     for i in range(1, n):
-        delta, _err, _ph = phase_cross_correlation(ref, prepared[i], upsample_factor=upsample)
+        delta, _err, _ph = _phase_cross_correlation(ref, prepared[i], upsample)
         shifts[i] = np.asarray(delta, dtype=np.float64)
     if mode == "mean":
         aligned = apply_shifts(frames, shifts)
         mean_ref = _prepare(aligned.mean(axis=0), highpass_sigma)
         refined = np.zeros_like(shifts)
         for i in range(n):
-            delta, _err, _ph = phase_cross_correlation(mean_ref, _prepare(aligned[i], highpass_sigma), upsample_factor=upsample)
+            delta, _err, _ph = _phase_cross_correlation(mean_ref, _prepare(aligned[i], highpass_sigma), upsample)
             refined[i] = shifts[i] + np.asarray(delta, dtype=np.float64)
         refined -= refined.mean(axis=0)
         return refined
@@ -69,7 +85,7 @@ def apply_shifts(stack: np.ndarray, shifts: np.ndarray) -> np.ndarray:
     frames = np.asarray(stack, dtype=np.float64)
     aligned = np.empty_like(frames)
     for i, sh in enumerate(shifts):
-        aligned[i] = ndi_shift(frames[i], shift=sh, order=1, mode="nearest")
+        aligned[i] = _ndi_shift(frames[i], sh)
     return aligned
 
 

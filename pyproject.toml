@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "openvelox"
-version = "0.5.0"
+version = "0.6.0"
 description = "Open-source Velox-like desktop app for Thermo Fisher / FEI electron microscopy data"
 readme = "README.md"
 license = { text = "GPL-3.0-only" }

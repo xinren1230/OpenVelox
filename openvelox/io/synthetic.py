@@ -244,16 +244,35 @@ def write_synthetic_emd(path: str | Path, seed: int = 1) -> Path:
                 "energy_offset_kev": float(si_meta["energy_offset_kev"]),
             },
         )
-        # Also store a Velox-accurate sparse SpectrumStream (same cube).
-        # Compact stream (downsampled) so the sample stays small.
+        # Four Super-X detector streams (quadrant-weighted) plus the auto-sum.
         stream_cube = np.clip(si[::2, ::2, :512], 0, 3).astype(np.uint16)
-        write_spectrum_stream_group(
-            stream_root,
-            stream_cube,
-            meta,
-            energy_scale_kev=float(si_meta["energy_scale_kev"]),
-            energy_offset_kev=float(si_meta["energy_offset_kev"]),
+        sh, sw = stream_cube.shape[:2]
+        yy, xx = np.mgrid[0:sh, 0:sw]
+        quads = (
+            ("Super-X A", (yy < sh / 2) & (xx < sw / 2)),
+            ("Super-X B", (yy < sh / 2) & (xx >= sw / 2)),
+            ("Super-X C", (yy >= sh / 2) & (xx >= sw / 2)),
+            ("Super-X D", (yy >= sh / 2) & (xx < sw / 2)),
         )
+        for det_name, mask in quads:
+            wgt = 0.15 + 0.85 * mask.astype(np.float32)
+            cube_i = np.clip(stream_cube * wgt[..., None], 0, 3).astype(np.uint16)
+            det_meta = build_velox_metadata(
+                display_name=det_name,
+                detector=det_name,
+                hv_v=DEFAULT_HV,
+                mag=DEFAULT_MAG,
+                pixel_m=DEFAULT_PIXEL_M * (192 / 32),
+                dwell_s=4e-5,
+            )
+            det_meta["detector_family"] = "superx"
+            write_spectrum_stream_group(
+                stream_root,
+                cube_i,
+                det_meta,
+                energy_scale_kev=float(si_meta["energy_scale_kev"]),
+                energy_offset_kev=float(si_meta["energy_offset_kev"]),
+            )
 
         fourd = bundle["4D-STEM"]
         meta = build_velox_metadata(

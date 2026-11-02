@@ -5,8 +5,6 @@ from __future__ import annotations
 from typing import Iterable
 
 import numpy as np
-from scipy.ndimage import uniform_filter1d
-from scipy.signal import find_peaks
 
 from openvelox.processing.xray_lines import (
     K_FACTORS_VS_SI,
@@ -22,6 +20,10 @@ def energy_axis(n: int, scale: float = 0.01, offset: float = 0.0) -> np.ndarray:
 
 
 def sum_spectrum(si: np.ndarray, mask: np.ndarray | None = None) -> np.ndarray:
+    from openvelox.io.lazy import LazyArray, sum_lazy_si
+
+    if mask is None and isinstance(si, LazyArray) and si.has_slicer() and not si.materialized():
+        return sum_lazy_si(si)
     cube = np.asarray(si, dtype=np.float64)
     if cube.ndim != 3:
         raise ValueError("Spectrum image must be (y, x, energy)")
@@ -166,6 +168,8 @@ def identify_peaks(
     work = net if float(net.max(initial=0.0)) > 0 else spec
     if prominence is None:
         prominence = max(float(np.percentile(work, 85) - np.percentile(work, 40)), work.max() * 0.04)
+    from scipy.signal import find_peaks
+
     peaks, props = find_peaks(work, prominence=prominence, distance=distance)
     order = np.argsort(props["prominences"])[::-1][:max_peaks]
     results = []
@@ -409,6 +413,8 @@ def make_element_maps(
 
 
 def smooth_spectrum(spectrum: np.ndarray, size: int = 5) -> np.ndarray:
+    from scipy.ndimage import uniform_filter1d
+
     return uniform_filter1d(np.asarray(spectrum, dtype=np.float64), size=max(1, int(size)))
 
 

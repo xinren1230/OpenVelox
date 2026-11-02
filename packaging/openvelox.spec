@@ -1,4 +1,5 @@
-# PyInstaller spec — one-folder Windows (or Linux) app:
+# PyInstaller spec — onedir (COLLECT) Windows / Linux app.
+# Resources resolve from sys._MEIPASS *or* the package dir (also works onefile).
 #   pyinstaller packaging/openvelox.spec
 # Onefile-compatible: openvelox.paths.window_icon_path() and resource_root()
 # read sys._MEIPASS first. To emit a true onefile EXE, set exclude_binaries=False

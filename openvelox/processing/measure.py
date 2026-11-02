@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import numpy as np
-from skimage.measure import profile_line
 
 
 def line_profile(
@@ -15,6 +14,8 @@ def line_profile(
     arr = np.asarray(image, dtype=np.float64)
     if arr.size == 0:
         return np.zeros(1), np.zeros(1)
+    from skimage.measure import profile_line
+
     values = profile_line(
         arr, p0, p1, linewidth=max(1, int(round(linewidth))), mode="nearest", reduce_func=np.mean
     )
